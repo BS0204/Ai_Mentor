@@ -74,4 +74,9 @@ coverage/
 # =====================
 # Local Scripts
 # =====================
+# Local Scripts
 start_ai.bat
+
+# Runtime user uploads
+/backend/uploads/*
+!/backend/uploads/.gitkeep

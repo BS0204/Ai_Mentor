@@ -2,6 +2,11 @@ import crypto from "crypto";
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import { Op } from "sequelize";
+import crypto from "crypto";
+import User from "../models/User.js";
+import jwt from "jsonwebtoken";
+import { Op } from "sequelize";
+
 import sendEmail from "../utils/sendEmail.js";
 import {
   ensureProfileCompleteness,
@@ -16,6 +21,7 @@ const generateToken = (id) => {
   });
 };
 
+
 // Centralized logic moved to userUtils.js
 const register = async (req, res) => {
   const { firstName, lastName, name, email, password } = req.body;
@@ -26,10 +32,11 @@ const register = async (req, res) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
+    const fullName = formatFullName(firstName, lastName) || name;
     const user = await User.create({
       firstName,
       lastName,
-      name: formatFullName(name, ""), // Standard register provides 'name', we treat as first part if needed
+      name: fullName,
       email,
       password,
     });
@@ -68,6 +75,10 @@ const login = async (req, res) => {
     }
 
     const isMatch = await user.matchPassword(password);
+
+    if (user.isBlocked) {
+      return res.status(403).json({ message: "Account suspended" });
+    }
 
     if (user && user.password && isMatch) {
       await ensureProfileCompleteness(user);
@@ -117,7 +128,7 @@ const refreshAvatarInBackground = async (userId, googlePictureUrl) => {
       return;
     }
 
-    const result = await cloudinary.uploader.upload(googlePictureUrl, {
+    const result = await authServices.uploadAvatar(googlePictureUrl, {
       folder: "user_avatars",
       public_id: `user_${userId}`,
       overwrite: true,
@@ -139,7 +150,7 @@ const googleLogin = async (req, res) => {
     // Validates signature, expiry, project (aud), and issuer automatically.
     let decodedToken;
     try {
-      decodedToken = await admin.auth().verifyIdToken(idToken);
+      decodedToken = await authServices.verifyGoogleIdToken(idToken);
     } catch (verifyError) {
       console.error("Google token verification failed:", verifyError.message);
       return res.status(401).json({ message: "Invalid Google token" });
@@ -153,7 +164,8 @@ const googleLogin = async (req, res) => {
     const email = decodedToken.email;
     const name = decodedToken.name || email.split("@")[0];
     let firstName = decodedToken.given_name || decodedToken.name?.split(" ")[0] || "";
-    let lastName = decodedToken.family_name || decodedToken.name?.split(" ").slice(1).join(" ") || "";
+    let lastName =
+      decodedToken.family_name || decodedToken.name?.split(" ").slice(1).join(" ") || "";
     const avatar_url = decodedToken.picture || null;
 
     // Fallback if given_name and family_name are missing
@@ -179,11 +191,11 @@ const googleLogin = async (req, res) => {
         role: "user",
       });
     } else {
-      let changed = false;
-      if (!user.googleId) {
-        user.googleId = uid;
-        changed = true;
+      if (user.isBlocked) {
+        return res.status(403).json({ message: "Account suspended" });
       }
+
+      let changed = false;
 
       if (!user.firstName && firstName) {
         user.firstName = firstName;
@@ -213,7 +225,7 @@ const googleLogin = async (req, res) => {
 
       if (isNewUser) {
         try {
-          const result = await cloudinary.uploader.upload(avatar_url, {
+          const result = await authServices.uploadAvatar(avatar_url, {
             folder: "user_avatars",
             public_id: `user_${user.id}`,
             overwrite: true,
@@ -269,10 +281,7 @@ const forgotPassword = async (req, res) => {
 
     const resetToken = crypto.randomBytes(20).toString("hex");
 
-    user.resetPasswordToken = crypto
-      .createHash("sha256")
-      .update(resetToken)
-      .digest("hex");
+    user.resetPasswordToken = crypto.createHash("sha256").update(resetToken).digest("hex");
 
     user.resetPasswordExpires = Date.now() + 3600000;
 
@@ -291,7 +300,7 @@ const forgotPassword = async (req, res) => {
     `;
 
     try {
-      await sendEmail({
+      await authServices.sendEmail({
         email: user.email,
         subject: "Password Reset Token",
         message,
@@ -299,8 +308,8 @@ const forgotPassword = async (req, res) => {
       });
 
       res.status(200).json(genericResponse);
-    } catch (err) {
-      console.error("Email could not be sent", err);
+    } catch {
+      console.error("Email could not be sent");
       user.resetPasswordToken = null;
       user.resetPasswordExpires = null;
       await user.save();
@@ -316,10 +325,7 @@ const resetPassword = async (req, res) => {
   const { password } = req.body;
 
   try {
-    const hashedToken = crypto
-      .createHash("sha256")
-      .update(req.params.token)
-      .digest("hex");
+    const hashedToken = crypto.createHash("sha256").update(req.params.token).digest("hex");
 
     const user = await User.findOne({
       where: {
@@ -335,6 +341,7 @@ const resetPassword = async (req, res) => {
     user.set("password", password);
     user.resetPasswordToken = null;
     user.resetPasswordExpires = null;
+    user.passwordChangedAt = Date.now();
 
     await user.save();
 
@@ -342,7 +349,8 @@ const resetPassword = async (req, res) => {
       .then(({ createNotification }) => {
         createNotification(user.id, {
           title: "Password Changed",
-          message: "Your password has been successfully reset. If this wasn't you, please secure your account.",
+          message:
+            "Your password has been successfully reset. If this wasn't you, please secure your account.",
           type: "security",
         });
       })
@@ -357,10 +365,4 @@ const resetPassword = async (req, res) => {
   }
 };
 
-export {
-  register,
-  login,
-  googleLogin,
-  forgotPassword,
-  resetPassword,
-};
+export { register, login, googleLogin, forgotPassword, resetPassword };
