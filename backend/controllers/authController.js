@@ -2,10 +2,6 @@ import crypto from "crypto";
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import { Op } from "sequelize";
-import crypto from "crypto";
-import User from "../models/User.js";
-import jwt from "jsonwebtoken";
-import { Op } from "sequelize";
 
 import sendEmail from "../utils/sendEmail.js";
 import {
