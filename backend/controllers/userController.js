@@ -344,29 +344,32 @@ const getWatchedVideos = async (req, res) => {
         if (watchHistory.status === "completed" || safeProgress >= 80) {
            completedCount++;
            } 
-          completedCount++;
         }
       });
     });
 
     // Calculate consecutive learning-day streak
-    const learningDates = new Set();
+   const learningDates = new Set();
 
-    watchedVideos.forEach((video) => {
-      if (video.lastWatched) {
-        const date = new Date(video.lastWatched);
+watchedVideos.forEach((video) => {
+  if (!video.lastWatched || Number(video.currentTime) <= 0) {
+    return;
+  }
 
-        if (!isNaN(date.getTime())) {
-          const dayKey = [
-            date.getFullYear(),
-            String(date.getMonth() + 1).padStart(2, "0"),
-            String(date.getDate()).padStart(2, "0"),
-          ].join("-");
+  const date = new Date(video.lastWatched);
 
-          learningDates.add(dayKey);
-        }
-      }
-    });
+  if (Number.isNaN(date.getTime())) {
+    return;
+  }
+
+  const dayKey = [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+
+  learningDates.add(dayKey);
+});
 
     const sortedDates = [...learningDates].sort();
 
