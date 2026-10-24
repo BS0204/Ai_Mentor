@@ -64,8 +64,13 @@ groq_client = Groq(
 class LessonRequest(BaseModel):
     course: str
     topic: str
-    celebrity: str
+    celebrity: str = "modi"
     preferences: dict | None = None
+    language: str = "English"
+    gender: str | None = None
+    voice_id: str | None = None
+    speech_rate: str = "+0%"
+    speech_pitch: str = "+0Hz"
 
 class SyllabusRequest(BaseModel):
     course_title: str
@@ -76,12 +81,18 @@ class SyllabusRequest(BaseModel):
 # --------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-async def generate_tts(text: str, output_file: str):
+async def generate_tts(
+    text: str,
+    output_file: str,
+    voice_id: str = "en-US-GuyNeural",
+    rate: str = "+0%",
+    pitch: str = "+0Hz",
+):
     communicate = edge_tts.Communicate(
         text=text,
-        voice="en-US-GuyNeural",
-        rate="+0%",
-        pitch="+0Hz"
+        voice=voice_id,
+        rate=rate,
+        pitch=pitch,
     )
     await communicate.save(output_file)
 
@@ -350,7 +361,15 @@ def process_lesson(data: LessonRequest, base_filename: str):
             if os.path.exists(audio_path):
                 os.remove(audio_path)
 
-            asyncio.run(generate_tts(script, audio_path))
+            asyncio.run(
+                generate_tts(
+                    text=script,
+                    output_file=audio_path,
+                    voice_id=data.voice_id or "en-US-GuyNeural",
+                    rate=data.speech_rate,
+                    pitch=data.speech_pitch,
+                )
+            )
 
             print(f"✅ Audio saved: {audio_path}")
 
