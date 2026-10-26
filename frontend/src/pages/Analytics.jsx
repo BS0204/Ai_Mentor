@@ -1,6 +1,3 @@
-import { apiFetch as fetch } from "../lib/api";
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import {
   BookOpen,
   Calendar,
@@ -23,12 +20,16 @@ import {
   Moon,
   Sun,
   Menu,
+  Users,
+  Flame,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
-
+import StatCard from "../components/StatCard";
 const Analytics = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
@@ -177,6 +178,9 @@ const Analytics = () => {
     currentStreak++;
 
     checkDate.setDate(checkDate.getDate() - 1);
+  // Calculate ongoing courses (courses with progress > 0)
+  if (pageLoading) {
+    return <LoadingSpinner label={t("analytics.loading")} />;
   }
 
   setStreak(currentStreak);
@@ -395,6 +399,69 @@ return (
             <div className="mt-4 flex items-center gap-1 text-xs text-[#2D3436]/60 dark:text-gray-400">
               <TrendingUp className="w-3 h-3" />
               <span>{metric.trend}</span>
+        {/* METRICS CARDS */}
+        {/* METRICS CARDS */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* 1. Enrolled Courses (Links to /courses) */}
+          <StatCard
+            icon={BookOpen}
+            iconBgColor="bg-blue-50 dark:bg-blue-950/40"
+            iconColor="text-blue-500 dark:text-blue-400"
+            label={t("analytics.enrolled_courses")}
+            value={totalCourses}
+            unit={t("analytics.units.course", { count: totalCourses })}
+            to="/courses"
+            change={null}
+          />
+
+          {/* 2. Attendance Rate (No link, unit is %) */}
+          <StatCard
+            icon={Users}
+            iconBgColor="bg-emerald-50 dark:bg-emerald-950/40"
+            iconColor="text-emerald-500 dark:text-emerald-400"
+            label={t("analytics.attendance_rate")}
+            value={`${attendance}%`}
+            to={null}
+            change={null}
+          />
+
+          {/* 3. Current Streak (No link) */}
+          <StatCard
+            icon={Flame}
+            iconBgColor="bg-orange-50 dark:bg-orange-950/40"
+            iconColor="text-orange-500 dark:text-orange-400"
+            label={t("analytics.current_streak_label")}
+            value={streak}
+            unit={t("analytics.units.day", { count: streak })}
+            to={null}
+            change={null}
+          />
+
+          {/* 4. Certificates (Links to /certificates) */}
+          <StatCard
+            icon={Award}
+            iconBgColor="bg-purple-50 dark:bg-purple-950/40"
+            iconColor="text-purple-500 dark:text-purple-400"
+            label={t("analytics.certificates")}
+            value={certificates}
+            unit={t("analytics.units.certificate", { count: certificates })}
+            to="/certificates"
+            change={null}
+          />
+        </div>
+
+        {/* Quick Stats Row */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white dark:bg-[#27272A] rounded-xl p-4 shadow-sm">
+            <div className="text-sm text-[#2D3436]/60 dark:text-gray-400">
+              {t("analytics.average_progress")}
+            </div>
+            <div className="text-xl font-bold text-[#00bea3]">{averageProgress}%</div>
+            <div className="w-full bg-[#F5F5F5] dark:bg-gray-700 rounded-full h-1.5 mt-2">
+              <div
+                className="bg-gradient-to-r from-[#00bea3] to-[#ff6d34] h-1.5 rounded-full transition-all duration-500"
+                style={{ width: `${averageProgress}%` }}
+              ></div>
             </div>
           </div>
         ))}
