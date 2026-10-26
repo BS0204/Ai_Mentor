@@ -190,7 +190,9 @@ function aiPythonPath() {
       ? configured
       : resolve(configured)
     : null;
-  const localVenv = resolve("ai_service", ".venv", "Scripts", "python.exe");
+  const localVenv = process.platform === "win32"
+  ? resolve("ai_service", ".venv", "Scripts", "python.exe")
+  : resolve("ai_service", ".venv", "bin", "python");
   const candidates = [configuredPath, localVenv, "python"].filter(Boolean);
   return candidates.find(
     (candidate) => candidate === "python" || require("node:fs").existsSync(candidate),
